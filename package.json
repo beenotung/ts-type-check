@@ -1,13 +1,9 @@
 {
   "name": "ts-type-check",
   "version": "1.0.0",
-  "description": "",
+  "description": "Check json value based of Typescript type in string",
   "keywords": [],
-  "author": {
-    "name": "Beeno Tung",
-    "email": "aabbcc1241@yahoo.com.hk",
-    "url": "https://beeno-tung.surge.sh"
-  },
+  "author": "Beeno Tung <aabbcc1241@yahoo.com.hk> (https://beeno-tung.surge.sh)",
   "license": "BSD-2-Clause",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -42,5 +38,13 @@
     "tslint": "^5.18.0",
     "tslint-eslint-rules": "^5.4.0",
     "typescript": "^3.5.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beenotung/ts-type-check.git"
+  },
+  "bugs": {
+    "url": "https://github.com/beenotung/ts-type-check/issues"
+  },
+  "homepage": "https://github.com/beenotung/ts-type-check#readme"
 }
