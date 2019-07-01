@@ -15,9 +15,11 @@ function test(type: Type, data: any, expectResult: 'pass' | 'fail' = 'pass') {
     if (expectResult === 'fail') {
       if (!error) {
         console.log('expect to fail, but passed.', { type, data });
+        throw new Error('missed exception');
       }
     }
   }
+  // console.log('pass');
 }
 
 test('string', 'Alice');
@@ -76,6 +78,90 @@ test(
   'fail',
 );
 
-// TODO bracket
+test(`number`, 1);
+test(`(number)`, 1);
+test(`{ a: number } | ({ b: number } & { c: number })`, { a: 1 });
+test(`{ a: number } | ({ b: number } & { c: number })`, { b: 1, c: 1 });
+test(
+  `{ a: number } | ({ b: number } & { c: number })`,
+  { a: 1, b: 1, c: 1 },
+  'fail',
+);
+test(`{ a: number } | ({ b: number } & { c: number })`, { a: 1, b: 1 }, 'fail');
+test(`{ a: number } | ({ b: number } & { c: number })`, { a: 1, c: 1 }, 'fail');
+test(`({ a: number } | { b: number }) & { c: number }`, { a: 1, c: 1 });
+test(`({ a: number } | { b: number }) & { c: number }`, { b: 1, c: 1 });
+test(
+  `({ a: number } | { b: number }) & { c: number }`,
+  { a: 1, b: 1, c: 1 },
+  'fail',
+);
+test(`({ a: number } | { b: number }) & { c: number }`, { a: 1 }, 'fail');
+test(`({ a: number } | { b: number }) & { c: number }`, { b: 1 }, 'fail');
+test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
+
+{
+  let x: {
+    UserId: string;
+    Contact:
+      | {
+          Method: 'telegram';
+        } & ({ UserId: string } | { Tel: string })
+      | {
+          Method: 'Email';
+          Email: string;
+        };
+  };
+  let type = `{
+    UserId: string,
+    Contact: {
+      Method: 'telegram'
+    } & ({ UserId: string } | { Tel: string }) | {
+      Method: 'Email',
+      Email: string
+    }
+  }`;
+  x = {
+    UserId: 'Alice',
+    Contact: {
+      Method: 'telegram',
+      UserId: 'alice',
+    },
+  };
+  test(type, x);
+  x = {
+    UserId: 'Alice',
+    Contact: {
+      Method: 'telegram',
+      Tel: '123',
+    },
+  };
+  test(type, x);
+  x = {
+    UserId: 'Alice',
+    Contact: {
+      Method: 'Email',
+      Email: 'alice@domain.com',
+    },
+  };
+  test(type, x);
+  x = {
+    UserId: 'Alice',
+    Contact: null,
+  };
+  test(type, x, 'fail');
+  x = {
+    UserId: 'Alice',
+    Contact: undefined,
+  };
+  test(type, x, 'fail');
+  x = {
+    UserId: 'Alice',
+    Contact: {
+      Method: 'Email',
+    } as any,
+  };
+  test(type, x, 'fail');
+}
 
 console.log('all passed.');

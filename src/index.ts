@@ -1,9 +1,27 @@
+// import * as util from 'util';
+
+const dev = (...args) => {
+  return;
+  console.log('[dev]', ...args);
+};
+const devStr = (name: string, str: string) => {
+  return;
+  dev(name);
+  dev('='.repeat(16));
+  console.log(str);
+  dev('='.repeat(16));
+};
+
 export type Type = 'string' | 'number' | 'Date' | 'boolean' | string;
 
-interface TypeChecker {
-  type: string;
+abstract class TypeChecker {
+  abstract type: string;
 
-  check(data: any): void;
+  abstract check(data: any): void;
+
+  compile(): TypeChecker {
+    return this;
+  }
 }
 
 interface ParseResult<T> {
@@ -17,8 +35,31 @@ interface Field {
   type: TypeChecker;
 }
 
-class ObjectChecker implements TypeChecker {
-  constructor(private fields: Field[]) {}
+class OrObjectTypeChecker extends TypeChecker {
+  constructor(
+    private left: ObjectTypeChecker,
+    private right: ObjectTypeChecker,
+  ) {
+    super();
+  }
+
+  get type(): string {
+    return `${this.left.type} | ${this.right.type}`;
+  }
+
+  check(data: any): void {
+    return this.compile().check(data);
+  }
+
+  compile(): TypeChecker {
+    return new OrTypeChecker(this.left, this.right);
+  }
+}
+
+class ObjectTypeChecker extends TypeChecker {
+  constructor(public fields: Field[]) {
+    super();
+  }
 
   get type(): string {
     let acc = '{ ';
@@ -48,12 +89,14 @@ class ObjectChecker implements TypeChecker {
     }
     for (const key of Object.keys(data)) {
       if (!this.fields.find(x => x.name === key)) {
+        // dev('extra field:', util.inspect({ type: this.type, data }));
         throw new Error(`got extra field '${key}'`);
       }
     }
   }
 
-  and(that: ObjectChecker): ObjectChecker {
+  and(that: ObjectTypeChecker): ObjectTypeChecker {
+    // console.log(`merge and:`, util.inspect({ this: this, that }, { depth: 99 }));
     const fields = new Map<string, Field>();
     this.fields.forEach(field => fields.set(field.name, field));
 
@@ -67,13 +110,45 @@ class ObjectChecker implements TypeChecker {
       const newField: Field = {
         name: thisField.name,
         optional: thisField.optional && thatField.optional,
-        // tslint:disable:no-use-before-declare
+        // type: new AndTypeChecker(thisField.type, thatField.type).compile(),
         type: new AndTypeChecker(thisField.type, thatField.type),
-        // tslint:enable:no-use-before-declare
       };
       fields.set(newField.name, newField);
     });
-    return new ObjectChecker(Array.from(fields.values()));
+    return new ObjectTypeChecker(Array.from(fields.values()));
+  }
+
+  /**@deprecated*/
+  or(that: ObjectTypeChecker): TypeChecker {
+    return new OrObjectTypeChecker(this, that);
+    // console.log(`merge or:`, util.inspect({ this: this, that }, { depth: 99 }));
+    const fields = new Map<string, Field>();
+    this.fields.forEach(field => fields.set(field.name, field));
+
+    that.fields.forEach(({ name, optional, type }) => {
+      if (fields.has(name)) {
+        // to merge
+        const oldField = fields.get(name);
+        if (oldField.type === type) {
+          return;
+        }
+        fields.set(name, {
+          name,
+          optional: oldField.optional && optional,
+          // type: new OrTypeChecker(oldField.type, type).compile(),
+          type: new OrTypeChecker(oldField.type, type),
+        });
+      } else {
+        // to allow extra
+        fields.set(name, {
+          name,
+          type,
+          optional: true,
+        });
+      }
+    });
+
+    return new ObjectTypeChecker(Array.from(fields.values()));
   }
 }
 
@@ -106,7 +181,7 @@ function expectChar(s: string, c: string) {
   }
 }
 
-function parseObjectType(s: string): ParseResult<ObjectChecker> {
+function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
   if (s.length === 0) {
     throw new Error('empty type');
   }
@@ -123,7 +198,7 @@ function parseObjectType(s: string): ParseResult<ObjectChecker> {
       s = s.substr(1);
       return {
         res: s,
-        data: new ObjectChecker(fields),
+        data: new ObjectTypeChecker(fields),
       };
     }
 
@@ -145,6 +220,7 @@ function parseObjectType(s: string): ParseResult<ObjectChecker> {
 
     let fieldType: TypeChecker;
     {
+      devStr('parseType for field ' + fieldName, s);
       const res = parseType(s);
       fieldType = res.data;
       s = res.res.trim();
@@ -163,8 +239,10 @@ function parseObjectType(s: string): ParseResult<ObjectChecker> {
   }
 }
 
-class StringChecker implements TypeChecker {
-  constructor(private value: string) {}
+class StringChecker extends TypeChecker {
+  constructor(private value: string) {
+    super();
+  }
 
   get type(): string {
     return JSON.stringify(this.value);
@@ -216,8 +294,10 @@ function getObjectType(data: any): string {
   return Object.prototype.toString.call(data);
 }
 
-class ArrayChecker implements TypeChecker {
-  constructor(private elementType: TypeChecker) {}
+class ArrayChecker extends TypeChecker {
+  constructor(private elementType: TypeChecker) {
+    super();
+  }
 
   get type(): string {
     return `Array<${this.elementType.type}>`;
@@ -227,7 +307,7 @@ class ArrayChecker implements TypeChecker {
     if (!Array.isArray(data)) {
       throw new Error(`expect array, got: ` + getObjectType(data));
     }
-    for (const datum of data as any[]) {
+    for (const datum of data) {
       this.elementType.check(datum);
     }
   }
@@ -258,29 +338,42 @@ function parseArray(s: string): ParseResult<ArrayChecker> {
   };
 }
 
+function makeNativeTypeChecker(type: Type): TypeChecker {
+  return new (class extends TypeChecker {
+    type: string = type;
+
+    check(data: any): void {
+      checkTsType(type, data);
+    }
+  })();
+}
+
+const nativeTypeCheckers = {
+  string: makeNativeTypeChecker('string'),
+  number: makeNativeTypeChecker('number'),
+  Date: makeNativeTypeChecker('Date'),
+  boolean: makeNativeTypeChecker('boolean'),
+};
+
 function parseOneType(s: string): ParseResult<TypeChecker> {
   s = s.trim();
   if (s.length === 0) {
     throw new Error('empty type');
   }
   if (s.startsWith('{')) {
+    devStr('parseObjectType', s);
     return parseObjectType(s);
   }
   for (const typeStr of ['string', 'number', 'Date', 'boolean']) {
     if (s.startsWith(typeStr)) {
       const nextC = s[typeStr.length];
       if (!isWordChar(nextC)) {
+        const type: TypeChecker = nativeTypeCheckers[typeStr];
         return {
           res: s.substr(typeStr.length),
-          data: {
-            type: typeStr,
-            check(data: any): void {
-              checkTsType(typeStr, data);
-            },
-          },
+          data: type,
         };
       }
-      console.log({ typeStr, type: s, nextC });
     }
   }
   switch (s[0]) {
@@ -290,6 +383,7 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     }
   }
   {
+    devStr('parseWord:', s);
     const prefixRes = parseWord(s);
     if (prefixRes.data === 'Array') {
       return parseArray(s);
@@ -297,21 +391,35 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
   }
 }
 
-class OrTypeChecker implements TypeChecker {
-  constructor(private left: TypeChecker, private right: TypeChecker) {}
+function toObjectTypeChecker(type: TypeChecker): ObjectTypeChecker | undefined {
+  if (type instanceof ObjectTypeChecker) {
+    return type;
+  }
+  if (
+    type instanceof BracketTypeChecker &&
+    type.content instanceof ObjectTypeChecker
+  ) {
+    return type.content;
+  }
+}
+
+function isObjectTypeChecker(type: TypeChecker): boolean {
+  return !!toObjectTypeChecker(type);
+}
+
+class OrTypeChecker extends TypeChecker {
+  static lastErrors: Error[];
+
+  constructor(public left: TypeChecker, public right: TypeChecker) {
+    super();
+  }
 
   get type(): string {
     return this.left.type + ' | ' + this.right.type;
   }
 
   check(data: any): void {
-    if (
-      this.left instanceof ObjectChecker &&
-      this.right instanceof ObjectChecker
-    ) {
-      // TODO merge object
-    }
-    const errors = [];
+    const errors: Error[] = [];
     for (const type of [this.left, this.right]) {
       try {
         type.check(data);
@@ -320,30 +428,91 @@ class OrTypeChecker implements TypeChecker {
         errors.push(e);
       }
     }
+    OrTypeChecker.lastErrors = errors;
     throw new Error(
-      `failed all type check of OrType, type: ${this.type}, errors:${errors
-        .map(e => e.toString())
-        .join(' | ')}`,
+      `failed all type check of OrType, type: ${
+        this.type
+      }, errors: ${errors.map(e => e.toString()).join(' | ')}`,
     );
+  }
+
+  compile(): TypeChecker {
+    return new OrTypeChecker(this.left.compile(), this.right.compile());
+    // return this;
+    // console.log(`compile or:`, util.inspect(this, { depth: 99 }));
+    const compileSelf = (): TypeChecker =>
+      new OrTypeChecker(this.left.compile(), this.right.compile());
+    const left = toObjectTypeChecker(this.left);
+    if (!left) {
+      return compileSelf();
+    }
+    const right = toObjectTypeChecker(this.right);
+    if (!right) {
+      return compileSelf();
+    }
+    return left.or(right);
+    // return new OrTypeChecker(left.or(right), right.or(left));
   }
 }
 
-class AndTypeChecker implements TypeChecker {
-  constructor(private left: TypeChecker, private right: TypeChecker) {}
+class AndTypeChecker extends TypeChecker {
+  constructor(public left: TypeChecker, public right: TypeChecker) {
+    super();
+  }
 
   get type(): string {
     return this.left.type + ' & ' + this.right.type;
   }
 
   check(data: any): void {
-    if (
-      this.left instanceof ObjectChecker &&
-      this.right instanceof ObjectChecker
-    ) {
-      return this.left.and(this.right).check(data);
+    const type = this.compile();
+    if (type !== this) {
+      // throw new Error('not compiled');
+      return type.check(data);
     }
     this.left.check(data);
     this.right.check(data);
+  }
+
+  compile(): TypeChecker {
+    if ('dev') {
+      if (this.left instanceof OrTypeChecker) {
+        return new OrTypeChecker(
+          new AndTypeChecker(this.left.left, this.right).compile(),
+          new AndTypeChecker(this.left.right, this.right).compile(),
+        ).compile();
+      }
+      if (
+        this.left instanceof BracketTypeChecker &&
+        this.left.content instanceof OrTypeChecker
+      ) {
+        return new OrTypeChecker(
+          new AndTypeChecker(this.left.content.left, this.right).compile(),
+          new AndTypeChecker(this.left.content.right, this.right).compile(),
+        ).compile();
+      }
+      if (this.right instanceof OrTypeChecker) {
+        return new OrTypeChecker(
+          new AndTypeChecker(this.left, this.right.left).compile(),
+          new AndTypeChecker(this.left, this.right.right).compile(),
+        ).compile();
+      }
+      if (
+        this.right instanceof BracketTypeChecker &&
+        this.right.content instanceof OrTypeChecker
+      ) {
+        return new OrTypeChecker(
+          new AndTypeChecker(this.left, this.right.content.left).compile(),
+          new AndTypeChecker(this.left, this.right.content.right).compile(),
+        ).compile();
+      }
+      if (isObjectTypeChecker(this.left) && isObjectTypeChecker(this.right)) {
+        return toObjectTypeChecker(this.left).and(
+          toObjectTypeChecker(this.right),
+        );
+      }
+    }
+    return this;
   }
 }
 
@@ -352,8 +521,10 @@ type LogicTerm = TypeChecker | '|' | '&';
 /**
  * & has higher binding order than |
  * */
-class LogicTypeChecker implements TypeChecker {
-  constructor(private terms: LogicTerm[]) {}
+class LogicTypeChecker extends TypeChecker {
+  constructor(private terms: LogicTerm[]) {
+    super();
+  }
 
   get type(): string {
     return this.terms
@@ -384,9 +555,11 @@ class LogicTypeChecker implements TypeChecker {
           }
           switch (op) {
             case '&':
+              // ys.push(new AndTypeChecker(left, right).compile());
               ys.push(new AndTypeChecker(left, right));
               break;
             case '|':
+              // ys.push(new OrTypeChecker(left, right).compile());
               ys.push(new OrTypeChecker(left, right));
               break;
             default:
@@ -420,37 +593,97 @@ class LogicTypeChecker implements TypeChecker {
   }
 }
 
-export function parseType(s: string): ParseResult<TypeChecker> {
-  let res = parseOneType(s);
-  s = res.res.trim();
-  const c = s[0];
-  switch (c) {
-    case '|':
-    case '&':
-      break;
-    default:
-      return res;
+class BracketTypeChecker<
+  T extends TypeChecker = TypeChecker
+> extends TypeChecker {
+  constructor(public content: T) {
+    super();
   }
-  s = res.res.trim();
-  const terms: LogicTerm[] = [res.data];
-  for (;;) {
-    const c = s[0];
-    switch (c) {
-      case '|':
-      case '&':
-        terms.push(c);
-        s = s.substr(1);
-        res = parseOneType(s);
-        s = res.res.trim();
-        terms.push(res.data);
+
+  get type(): string {
+    return `(${this.content.type})`;
+  }
+
+  check(data: any): void {
+    this.content.check(data);
+  }
+
+  compile(): TypeChecker {
+    return new BracketTypeChecker(this.content.compile());
+  }
+}
+
+type BracketTerm = LogicTerm | '(' | ')';
+
+function compileBracket(terms: BracketTerm[]): LogicTerm[] {
+  const stack: Array<LogicTerm | LogicTypeChecker | '('> = [];
+  for (const term of terms) {
+    switch (term) {
+      case ')':
+        const idx = stack.lastIndexOf('(');
+        if (idx === -1) {
+          console.error('missing open bracket, terms:', terms);
+          throw new Error('missing open bracket');
+        }
+        const logicTerms = stack.splice(idx + 1, stack.length);
+        stack.pop();
+        stack.push(
+          new BracketTypeChecker(
+            new LogicTypeChecker(logicTerms as LogicTerm[]).compile(),
+          ),
+        );
         break;
       default:
-        return {
-          res: s,
-          data: new LogicTypeChecker(terms).compile(),
-        };
+        stack.push(term);
     }
   }
+  return stack as LogicTerm[];
+}
+
+export function parseType(s: string): ParseResult<TypeChecker> {
+  const originalS = s;
+  const terms: BracketTerm[] = [];
+  let isTerm = false;
+  s = s.trim();
+  main: for (; s.length > 0; ) {
+    const c = s[0];
+    switch (c) {
+      case '(':
+      case ')':
+      case '|':
+      case '&': {
+        isTerm = true;
+        s = s.substr(1).trim();
+        terms.push(c);
+        break;
+      }
+      default:
+        if (terms.length === 1) {
+          const first = terms[0];
+          if (typeof first !== 'string') {
+            return {
+              res: s,
+              data: first,
+            };
+          }
+        }
+        if (s[0] === '}' && terms.length > 0) {
+          break main;
+        }
+        devStr('parseOneType:', originalS);
+        const res = parseOneType(s);
+        s = res.res.trim();
+        terms.push(res.data);
+    }
+  }
+  if (!isTerm) {
+    return parseOneType(originalS);
+  }
+  const type = new LogicTypeChecker(compileBracket(terms)).compile();
+  return {
+    res: s,
+    data: type,
+  };
 }
 
 /**
@@ -479,10 +712,12 @@ export function checkTsType(type: Type, data: any): void {
           `failed to parse type, reminding type string: '${res.res}'`,
         );
       }
-      // console.log('parsed type:', res.data.type);
-      // let util = require('util');
-      // console.log('checker:', util.inspect(res.data, { depth: 99 }));
-      res.data.check(data);
+      dev('raw type:', type);
+      dev('parsed type:', res.data.type);
+      const compiledType = res.data.compile();
+      dev('compiled type:', compiledType.type);
+      // dev('checker:', util.inspect(compiledType, { depth: 99 }));
+      compiledType.check(data);
     }
   }
 }
