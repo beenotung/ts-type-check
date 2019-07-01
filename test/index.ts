@@ -52,6 +52,8 @@ test(`Array<string>`, [1], 'fail');
 test(`'y' | 'n'`, 'y');
 test(`'y' | 'n'`, 'n');
 test(`'y' | 'n'`, 'foo', 'fail');
+test(`1 | 2`, 1);
+test(`1 | 2`, 3, 'fail');
 
 test(`{ UserId: string } & { Age: number }`, { UserId: 'Alice', Age: 123 });
 test(

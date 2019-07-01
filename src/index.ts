@@ -290,6 +290,68 @@ function parseString(s: string): ParseResult<StringChecker> {
   throw new Error(`expect string, but missing closing quote: ${q}`);
 }
 
+function isDigit(c: string): boolean {
+  return '0' <= c && c <= '9';
+}
+
+class NumberChecker extends TypeChecker {
+  constructor(private value: number) {
+    super();
+  }
+
+  get type(): string {
+    return JSON.stringify(this.value);
+  }
+
+  check(data: any): void {
+    if (typeof data !== 'number') {
+      throw new Error('expect number, got: ' + typeof data);
+    }
+    if (data !== this.value) {
+      throw new Error(
+        `expect number value: ${this.value}, but got: ${JSON.stringify(data)}`,
+      );
+    }
+  }
+}
+
+function parseIntStr(s: string): ParseResult<string> {
+  s = s.trim();
+  if (s.length === 0) {
+    throw new Error('empty type string, expect integer');
+  }
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (!isDigit(c)) {
+      if (i === 0) {
+        throw new Error(`expect integer, got: ${c}`);
+      }
+      return {
+        res: s.substr(i),
+        data: s.substr(0, i),
+      };
+    }
+  }
+  return { res: '', data: s };
+}
+
+// TODO support e+<int> and e-<int>
+function parseNumber(s: string): ParseResult<NumberChecker> {
+  const a = parseIntStr(s);
+  s = a.res.trim();
+  let num = a.data;
+  if (s[0] === '.') {
+    s = s.substr(1);
+    const b = parseIntStr(s);
+    s = b.res.trim();
+    num = a + '.' + b;
+  }
+  return {
+    res: s,
+    data: new NumberChecker(+num),
+  };
+}
+
 function getObjectType(data: any): string {
   return Object.prototype.toString.call(data);
 }
@@ -380,6 +442,11 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     case '"':
     case "'": {
       return parseString(s);
+    }
+    default: {
+      if (isDigit(s[0])) {
+        return parseNumber(s);
+      }
     }
   }
   {
