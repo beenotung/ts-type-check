@@ -161,6 +161,7 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
     UserId: 'Alice',
     Contact: {
       Method: 'Email',
+      Email_: 'alice@domain.com',
     } as any,
   };
   test(type, x, 'fail');
