@@ -12,7 +12,14 @@ const devStr = (name: string, str: string) => {
   dev('='.repeat(16));
 };
 
-export type Type = 'string' | 'number' | 'Date' | 'boolean' | string;
+export type Type =
+  | 'string'
+  | 'number'
+  | 'Date'
+  | 'boolean'
+  | 'true'
+  | 'false'
+  | string;
 
 abstract class TypeChecker {
   abstract type: string;
@@ -415,6 +422,8 @@ const nativeTypeCheckers = {
   number: makeNativeTypeChecker('number'),
   Date: makeNativeTypeChecker('Date'),
   boolean: makeNativeTypeChecker('boolean'),
+  true: makeNativeTypeChecker('true'),
+  false: makeNativeTypeChecker('false'),
 };
 
 function parseOneType(s: string): ParseResult<TypeChecker> {
@@ -426,7 +435,14 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     devStr('parseObjectType', s);
     return parseObjectType(s);
   }
-  for (const typeStr of ['string', 'number', 'Date', 'boolean']) {
+  for (const typeStr of [
+    'string',
+    'number',
+    'Date',
+    'boolean',
+    'true',
+    'false',
+  ]) {
     if (s.startsWith(typeStr)) {
       const nextC = s[typeStr.length];
       if (!isWordChar(nextC)) {
@@ -763,6 +779,16 @@ export function checkTsType(type: Type, data: any): void {
     case 'number':
     case 'boolean':
       if (dataType !== type) {
+        throw new Error(`expect type: ${type}, got type: ${dataType}`);
+      }
+      return;
+    case 'true':
+      if (data !== true) {
+        throw new Error(`expect type: ${type}, got type: ${dataType}`);
+      }
+      return;
+    case 'false':
+      if (data !== false) {
         throw new Error(`expect type: ${type}, got type: ${dataType}`);
       }
       return;

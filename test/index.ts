@@ -28,6 +28,16 @@ test('string', 123, 'fail');
 test('number', 123);
 test('number', '123', 'fail');
 
+test('boolean', true);
+test('boolean', false);
+test('boolean', 'true', 'fail');
+test('boolean', 'false', 'fail');
+
+test('true', true);
+test('false', false);
+test('true', false, 'fail');
+test('false', true, 'fail');
+
 test('Date', new Date());
 test('Date', new Date().getTime(), 'fail');
 
@@ -165,6 +175,14 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
     } as any,
   };
   test(type, x, 'fail');
+}
+
+{
+  let x: { Success: true } | { Success: false; Reason: string } = {
+    Success: true,
+  };
+  let type = `{ Success: true } | { Success: false, Reason: string }`;
+  test(type, x, 'pass');
 }
 
 console.log('all passed.');
