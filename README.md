@@ -4,6 +4,19 @@ Check json value based of Typescript type in string
 
 [![npm Package Version](https://img.shields.io/npm/v/ts-type-check.svg?maxAge=2592000)](https://www.npmjs.com/package/ts-type-check)
 
+## Supported Data Type
+- string
+- number
+- boolean
+- Date
+- object (with required / optional fields)
+- array
+- unions
+- intersections
+- unit types*
+
+*: Unit types are the literal value of primitive types, e.g. `true` | `false` | `'str'` | `1`
+
 ## Example
 ```typescript
 import { checkTsType } from 'ts-type-check'
