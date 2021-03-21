@@ -10,7 +10,7 @@ Check json value based of Typescript type in string
 - boolean
 - Date
 - object (with required / optional fields)
-- array
+- Array
 - unions
 - intersections
 - unit types*
