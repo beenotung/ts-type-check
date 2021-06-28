@@ -136,34 +136,6 @@ class ObjectTypeChecker extends TypeChecker {
   /**@deprecated*/
   or(that: ObjectTypeChecker): TypeChecker {
     return new OrObjectTypeChecker(this, that);
-    // console.log(`merge or:`, util.inspect({ this: this, that }, { depth: 99 }));
-    const fields = new Map<string, Field>();
-    this.fields.forEach(field => fields.set(field.name, field));
-
-    that.fields.forEach(({ name, optional, type }) => {
-      if (fields.has(name)) {
-        // to merge
-        const oldField = fields.get(name);
-        if (oldField.type === type) {
-          return;
-        }
-        fields.set(name, {
-          name,
-          optional: oldField.optional && optional,
-          // type: new OrTypeChecker(oldField.type, type).compile(),
-          type: new OrTypeChecker(oldField.type, type),
-        });
-      } else {
-        // to allow extra
-        fields.set(name, {
-          name,
-          type,
-          optional: true,
-        });
-      }
-    });
-
-    return new ObjectTypeChecker(Array.from(fields.values()));
   }
 }
 
@@ -531,20 +503,6 @@ class OrTypeChecker extends TypeChecker {
 
   compile(): TypeChecker {
     return new OrTypeChecker(this.left.compile(), this.right.compile());
-    // return this;
-    // console.log(`compile or:`, util.inspect(this, { depth: 99 }));
-    const compileSelf = (): TypeChecker =>
-      new OrTypeChecker(this.left.compile(), this.right.compile());
-    const left = toObjectTypeChecker(this.left);
-    if (!left) {
-      return compileSelf();
-    }
-    const right = toObjectTypeChecker(this.right);
-    if (!right) {
-      return compileSelf();
-    }
-    return left.or(right);
-    // return new OrTypeChecker(left.or(right), right.or(left));
   }
 }
 
