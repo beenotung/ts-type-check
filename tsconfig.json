@@ -17,7 +17,8 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "es2018",
-    "outDir": "dist"
+    "outDir": "dist",
+    "incremental": true
   },
   "include": [
     "src/**/*.ts"
