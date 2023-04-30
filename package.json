@@ -17,11 +17,11 @@
     "test": "test"
   },
   "devDependencies": {
-    "@types/node": "^8.10.66",
-    "prettier": "^1.19.1",
-    "rimraf": "^2.7.1",
-    "ts-node": "^8.10.2",
-    "typescript": "^3.9.10"
+    "@types/node": "^18.16.3",
+    "prettier": "^2.8.8",
+    "rimraf": "^5.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
   },
   "repository": {
     "type": "git",
