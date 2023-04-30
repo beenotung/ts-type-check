@@ -21,6 +21,11 @@ export type Type =
   | 'false'
   | string;
 
+export class TypeCheckError extends TypeError {
+  statusCode: 400;
+  status: 400;
+}
+
 abstract class TypeChecker {
   abstract type: string;
 
@@ -84,11 +89,11 @@ class ObjectTypeChecker extends TypeChecker {
 
   check(data: any): void {
     if (typeof data !== 'object') {
-      throw new Error('expect object, got: ' + typeof data);
+      throw new TypeCheckError('expect object, got: ' + typeof data);
     }
     for (const field of this.fields) {
       if (!field.optional && !(field.name in data)) {
-        throw new Error(`expect field '${field.name}' but missing`);
+        throw new TypeCheckError(`expect field '${field.name}' but missing`);
       }
       if (field.name in data) {
         field.type.check(data[field.name]);
@@ -97,7 +102,7 @@ class ObjectTypeChecker extends TypeChecker {
     for (const key of Object.keys(data)) {
       if (!this.fields.find(x => x.name === key)) {
         // dev('extra field:', util.inspect({ type: this.type, data }));
-        throw new Error(`got extra field '${key}'`);
+        throw new TypeCheckError(`got extra field '${key}'`);
       }
     }
   }
@@ -174,7 +179,7 @@ function parseWord(s: string): ParseResult<string> {
     }
   }
   if (len === 0) {
-    throw new Error(`expect word, but got: '${s[0]}'`);
+    throw new TypeCheckError(`expect word, but got: '${s[0]}'`);
   }
   return {
     res: s.substr(len),
@@ -184,16 +189,16 @@ function parseWord(s: string): ParseResult<string> {
 
 function expectChar(s: string, c: string) {
   if (s[0] !== c) {
-    throw new Error(`expect '${c}', got '${s[0]}'`);
+    throw new TypeCheckError(`expect '${c}', got '${s[0]}'`);
   }
 }
 
 function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
   if (s.length === 0) {
-    throw new Error('empty type');
+    throw new TypeCheckError('empty type');
   }
   if (s[0] !== '{') {
-    throw new Error(`expect '{' but got '${s[0]}'`);
+    throw new TypeCheckError(`expect '{' but got '${s[0]}'`);
   }
   s = s.substr(1);
   const fields: Field[] = [];
@@ -257,10 +262,10 @@ class StringChecker extends TypeChecker {
 
   check(data: any): void {
     if (typeof data !== 'string') {
-      throw new Error('expect string, got: ' + typeof data);
+      throw new TypeCheckError('expect string, got: ' + typeof data);
     }
     if (data !== this.value) {
-      throw new Error(
+      throw new TypeCheckError(
         `expect string value: ${JSON.stringify(
           this.value,
         )}, but got: ${JSON.stringify(data)}`,
@@ -271,10 +276,12 @@ class StringChecker extends TypeChecker {
 
 function parseString(s: string): ParseResult<StringChecker> {
   if (s.length === 0) {
-    throw new Error('empty type');
+    throw new TypeCheckError('empty type');
   }
   if (s.length < 1) {
-    throw new Error('expect string, but only got length of ' + s.length);
+    throw new TypeCheckError(
+      'expect string, but only got length of ' + s.length,
+    );
   }
   const q = s[0];
   let acc = '';
@@ -294,7 +301,7 @@ function parseString(s: string): ParseResult<StringChecker> {
         acc += c;
     }
   }
-  throw new Error(`expect string, but missing closing quote: ${q}`);
+  throw new TypeCheckError(`expect string, but missing closing quote: ${q}`);
 }
 
 function isDigit(c: string): boolean {
@@ -312,10 +319,10 @@ class NumberChecker extends TypeChecker {
 
   check(data: any): void {
     if (typeof data !== 'number') {
-      throw new Error('expect number, got: ' + typeof data);
+      throw new TypeCheckError('expect number, got: ' + typeof data);
     }
     if (data !== this.value) {
-      throw new Error(
+      throw new TypeCheckError(
         `expect number value: ${this.value}, but got: ${JSON.stringify(data)}`,
       );
     }
@@ -325,13 +332,13 @@ class NumberChecker extends TypeChecker {
 function parseIntStr(s: string): ParseResult<string> {
   s = s.trim();
   if (s.length === 0) {
-    throw new Error('empty type string, expect integer');
+    throw new TypeCheckError('empty type string, expect integer');
   }
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (!isDigit(c)) {
       if (i === 0) {
-        throw new Error(`expect integer, got: ${c}`);
+        throw new TypeCheckError(`expect integer, got: ${c}`);
       }
       return {
         res: s.substr(i),
@@ -374,7 +381,7 @@ class ArrayChecker extends TypeChecker {
 
   check(data: any): void {
     if (!Array.isArray(data)) {
-      throw new Error(`expect array, got: ` + getObjectType(data));
+      throw new TypeCheckError(`expect array, got: ` + getObjectType(data));
     }
     for (const datum of data) {
       this.elementType.check(datum);
@@ -385,7 +392,7 @@ class ArrayChecker extends TypeChecker {
 function parseArray(s: string): ParseResult<ArrayChecker> {
   const prefixRes = parseWord(s);
   if (prefixRes.data !== 'Array') {
-    throw new Error('expect array type, got: ' + JSON.stringify(s));
+    throw new TypeCheckError('expect array type, got: ' + JSON.stringify(s));
   }
   s = s.substring('Array'.length).trim();
   expectChar(s, '<');
@@ -429,7 +436,7 @@ const nativeTypeCheckers = {
 function parseOneType(s: string): ParseResult<TypeChecker> {
   s = s.trim();
   if (s.length === 0) {
-    throw new Error('empty type');
+    throw new TypeCheckError('empty type');
   }
   if (s.startsWith('{')) {
     devStr('parseObjectType', s);
@@ -512,7 +519,7 @@ class OrTypeChecker extends TypeChecker {
       }
     }
     OrTypeChecker.lastErrors = errors;
-    throw new Error(
+    throw new TypeCheckError(
       `failed all type check of OrType, type: ${this.type}, errors: ${errors
         .map(e => e.toString())
         .join(' | ')}`,
@@ -779,22 +786,22 @@ export function checkTsType(type: Type, data: any): void {
     case 'number':
     case 'boolean':
       if (dataType !== type) {
-        throw new Error(`expect type: ${type}, got type: ${dataType}`);
+        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
       }
       return;
     case 'true':
       if (data !== true) {
-        throw new Error(`expect type: ${type}, got type: ${dataType}`);
+        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
       }
       return;
     case 'false':
       if (data !== false) {
-        throw new Error(`expect type: ${type}, got type: ${dataType}`);
+        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
       }
       return;
     case 'Date':
       if (!(data instanceof Date)) {
-        throw new Error(`expect Date, got: ${getObjectType(data)}`);
+        throw new TypeCheckError(`expect Date, got: ${getObjectType(data)}`);
       }
       return;
     default: {
