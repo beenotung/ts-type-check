@@ -26,9 +26,6 @@
   "directories": {
     "test": "test"
   },
-  "dependencies": {
-    "@beenotung/tslib": "^14.20.0"
-  },
   "devDependencies": {
     "@types/node": "8",
     "husky": "^2.4.1",
