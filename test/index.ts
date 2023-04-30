@@ -116,9 +116,9 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
   let x: {
     UserId: string;
     Contact:
-      | {
+      | ({
           Method: 'telegram';
-        } & ({ UserId: string } | { Tel: string })
+        } & ({ UserId: string } | { Tel: string }))
       | {
           Method: 'Email';
           Email: string;

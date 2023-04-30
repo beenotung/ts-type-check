@@ -513,9 +513,9 @@ class OrTypeChecker extends TypeChecker {
     }
     OrTypeChecker.lastErrors = errors;
     throw new Error(
-      `failed all type check of OrType, type: ${
-        this.type
-      }, errors: ${errors.map(e => e.toString()).join(' | ')}`,
+      `failed all type check of OrType, type: ${this.type}, errors: ${errors
+        .map(e => e.toString())
+        .join(' | ')}`,
     );
   }
 
@@ -677,7 +677,7 @@ class LogicTypeChecker extends TypeChecker {
 }
 
 class BracketTypeChecker<
-  T extends TypeChecker = TypeChecker
+  T extends TypeChecker = TypeChecker,
 > extends TypeChecker {
   constructor(public content: T) {
     super();
