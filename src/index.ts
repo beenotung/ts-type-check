@@ -22,8 +22,11 @@ export type Type =
   | string;
 
 export class TypeCheckError extends TypeError {
-  statusCode: 400;
-  status: 400;
+  statusCode = 400;
+  status = 400;
+  constructor(message: string) {
+    super(message);
+  }
 }
 
 abstract class TypeChecker {

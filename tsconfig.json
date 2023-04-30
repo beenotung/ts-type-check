@@ -16,7 +16,7 @@
     "downlevelIteration": true,
     "module": "commonjs",
     "moduleResolution": "node",
-    "target": "es5",
+    "target": "es2018",
     "outDir": "dist"
   },
   "include": [
