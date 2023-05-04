@@ -1,4 +1,5 @@
 {
+  "semi": true,
   "arrowParens": "avoid",
   "singleQuote": true,
   "trailingComma": "all"

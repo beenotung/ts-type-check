@@ -7,3 +7,4 @@ pnpm-debug.log
 dist/
 .cache/
 *.tgz
+.vscode
