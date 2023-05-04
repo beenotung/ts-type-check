@@ -1,9 +1,14 @@
-import { checkTsType, Type } from '../src';
+import { checkTsType, Type, TypeCheckOptions } from '../src';
 
-function test(type: Type, data: any, expectResult: 'pass' | 'fail' = 'pass') {
+function test(
+  type: Type,
+  data: any,
+  expectResult: 'pass' | 'fail' = 'pass',
+  options?: TypeCheckOptions,
+) {
   let error;
   try {
-    checkTsType(type, data);
+    checkTsType(type, data, options);
   } catch (e) {
     error = e;
   } finally {
@@ -37,6 +42,12 @@ test('true', true);
 test('false', false);
 test('true', false, 'fail');
 test('false', true, 'fail');
+
+test('true', 1, 'fail', { casualBoolean: false });
+test('true', 1, 'pass', { casualBoolean: true });
+
+test('false', 0, 'fail', { casualBoolean: false });
+test('false', 0, 'pass', { casualBoolean: true });
 
 test('Date', new Date());
 test('Date', new Date().getTime(), 'fail');

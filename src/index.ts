@@ -29,10 +29,14 @@ export class TypeCheckError extends TypeError {
   }
 }
 
+export type TypeCheckOptions = {
+  casualBoolean?: boolean; // default false
+};
+
 abstract class TypeChecker {
   abstract type: string;
 
-  abstract check(data: any): void;
+  abstract check(data: any, options?: TypeCheckOptions): void;
 
   compile(): TypeChecker {
     return this;
@@ -62,8 +66,8 @@ class OrObjectTypeChecker extends TypeChecker {
     return `${this.left.type} | ${this.right.type}`;
   }
 
-  check(data: any): void {
-    return this.compile().check(data);
+  check(data: any, options?: TypeCheckOptions): void {
+    return this.compile().check(data, options);
   }
 
   compile(): TypeChecker {
@@ -90,7 +94,7 @@ class ObjectTypeChecker extends TypeChecker {
     return acc;
   }
 
-  check(data: any): void {
+  check(data: any, options?: TypeCheckOptions): void {
     if (typeof data !== 'object') {
       throw new TypeCheckError('expect object, got: ' + typeof data);
     }
@@ -99,7 +103,7 @@ class ObjectTypeChecker extends TypeChecker {
         throw new TypeCheckError(`expect field '${field.name}' but missing`);
       }
       if (field.name in data) {
-        field.type.check(data[field.name]);
+        field.type.check(data[field.name], options);
       }
     }
     for (const key of Object.keys(data)) {
@@ -226,30 +230,7 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
   }
 }
 
-class StringChecker extends TypeChecker {
-  constructor(private value: string) {
-    super();
-  }
-
-  get type(): string {
-    return JSON.stringify(this.value);
-  }
-
-  check(data: any): void {
-    if (typeof data !== 'string') {
-      throw new TypeCheckError('expect string, got: ' + typeof data);
-    }
-    if (data !== this.value) {
-      throw new TypeCheckError(
-        `expect string value: ${JSON.stringify(
-          this.value,
-        )}, got: ${JSON.stringify(data)}`,
-      );
-    }
-  }
-}
-
-function parseString(s: string): ParseResult<StringChecker> {
+function parseString(s: string): ParseResult<LiteralChecker<string>> {
   if (s.length === 0) {
     throw new TypeCheckError('empty type');
   }
@@ -270,7 +251,7 @@ function parseString(s: string): ParseResult<StringChecker> {
       case q:
         return {
           res: s.substring(i + 1),
-          data: new StringChecker(acc),
+          data: new LiteralChecker(acc),
         };
       default:
         acc += c;
@@ -283,22 +264,17 @@ function isDigit(c: string): boolean {
   return '0' <= c && c <= '9';
 }
 
-class NumberChecker extends TypeChecker {
-  constructor(private value: number) {
+class LiteralChecker<T> extends TypeChecker {
+  type = 'literal ' + JSON.stringify(this.value);
+
+  constructor(private value: T) {
     super();
   }
 
-  get type(): string {
-    return JSON.stringify(this.value);
-  }
-
-  check(data: any): void {
-    if (typeof data !== 'number') {
-      throw new TypeCheckError('expect number, got: ' + typeof data);
-    }
+  check(data: any, options?: TypeCheckOptions): void {
     if (data !== this.value) {
       throw new TypeCheckError(
-        `expect number value: ${this.value}, got: ${JSON.stringify(data)}`,
+        `expect ${this.type}, got: ${JSON.stringify(data)}`,
       );
     }
   }
@@ -325,24 +301,30 @@ function parseIntStr(s: string): ParseResult<string> {
 }
 
 // TODO support e+<int> and e-<int>
-function parseNumber(s: string): ParseResult<NumberChecker> {
+function parseNumber(s: string): ParseResult<LiteralChecker<number>> {
   const a = parseIntStr(s);
   s = a.res.trim();
   let num = a.data;
   if (s[0] === '.') {
-    s = s.substr(1);
+    s = s.substring(1);
     const b = parseIntStr(s);
     s = b.res.trim();
     num = a + '.' + b;
   }
   return {
     res: s,
-    data: new NumberChecker(+num),
+    data: new LiteralChecker(+num),
   };
 }
 
-function getObjectType(data: any): string {
-  return Object.prototype.toString.call(data);
+function getSimpleType(data: any): string {
+  const type = typeof data;
+  if (type === 'object') {
+    if (data === null) return 'null';
+    if (Array.isArray(data)) return 'Array';
+    if (data instanceof Date) return 'Date';
+  }
+  return type;
 }
 
 class ArrayChecker extends TypeChecker {
@@ -354,12 +336,12 @@ class ArrayChecker extends TypeChecker {
     return `Array<${this.elementType.type}>`;
   }
 
-  check(data: any): void {
+  check(data: any, options?: TypeCheckOptions): void {
     if (!Array.isArray(data)) {
-      throw new TypeCheckError(`expect array, got: ` + getObjectType(data));
+      throw new TypeCheckError(`expect array, got: ` + getSimpleType(data));
     }
     for (const datum of data) {
-      this.elementType.check(datum);
+      this.elementType.check(datum, options);
     }
   }
 }
@@ -389,23 +371,66 @@ function parseArray(s: string): ParseResult<ArrayChecker> {
   };
 }
 
-function makeNativeTypeChecker(type: Type): TypeChecker {
-  return new (class extends TypeChecker {
-    type: string = type;
-
-    check(data: any): void {
-      checkTsType(type, data);
+class BooleanChecker extends TypeChecker {
+  type: string = 'boolean';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (typeof data === 'boolean') return;
+    if (options.casualBoolean === true) {
+      if (data === 0 || data === 1) return;
     }
-  })();
+    throw new TypeCheckError('expect boolean, got: ' + JSON.stringify(data));
+  }
+}
+
+class TrueChecker extends TypeChecker {
+  type: string = 'true';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (data === true) return;
+    if (data === 1 && options?.casualBoolean) return;
+    throw new TypeCheckError('expect true, got: ' + JSON.stringify(data));
+  }
+}
+
+class FalseChecker extends TypeChecker {
+  type: string = 'false';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (data === false) return;
+    if (data === 0 && options?.casualBoolean) return;
+    throw new TypeCheckError('expect false, got: ' + JSON.stringify(data));
+  }
+}
+
+class StringChecker extends TypeChecker {
+  type: string = 'string';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (typeof data === 'string') return;
+    throw new TypeCheckError('expect string, got: ' + JSON.stringify(data));
+  }
+}
+
+class NumberChecker extends TypeChecker {
+  type: string = 'number';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (typeof data === 'number') return;
+    throw new TypeCheckError('expect number, got: ' + JSON.stringify(data));
+  }
+}
+
+class DateChecker extends TypeChecker {
+  type: string = 'Date';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (data instanceof Date) return;
+    throw new TypeCheckError('expect Date, got: ' + JSON.stringify(data));
+  }
 }
 
 const nativeTypeCheckers = {
-  string: makeNativeTypeChecker('string'),
-  number: makeNativeTypeChecker('number'),
-  Date: makeNativeTypeChecker('Date'),
-  boolean: makeNativeTypeChecker('boolean'),
-  true: makeNativeTypeChecker('true'),
-  false: makeNativeTypeChecker('false'),
+  string: new StringChecker(),
+  number: new NumberChecker(),
+  Date: new DateChecker(),
+  boolean: new BooleanChecker(),
+  true: new TrueChecker(),
+  false: new FalseChecker(),
 };
 
 function parseOneType(s: string): ParseResult<TypeChecker> {
@@ -483,11 +508,11 @@ class OrTypeChecker extends TypeChecker {
     return this.left.type + ' | ' + this.right.type;
   }
 
-  check(data: any): void {
+  check(data: any, options?: TypeCheckOptions): void {
     const errors: Error[] = [];
     for (const type of [this.left, this.right]) {
       try {
-        type.check(data);
+        type.check(data, options);
         return;
       } catch (e) {
         errors.push(e);
@@ -515,14 +540,14 @@ class AndTypeChecker extends TypeChecker {
     return this.left.type + ' & ' + this.right.type;
   }
 
-  check(data: any): void {
+  check(data: any, options?: TypeCheckOptions): void {
     const type = this.compile();
     if (type !== this) {
       // throw new Error('not compiled');
-      return type.check(data);
+      return type.check(data, options);
     }
-    this.left.check(data);
-    this.right.check(data);
+    this.left.check(data, options);
+    this.right.check(data, options);
   }
 
   compile(): TypeChecker {
@@ -639,8 +664,8 @@ class LogicTypeChecker extends TypeChecker {
     return term;
   }
 
-  check(data: any): void {
-    this.compile().check(data);
+  check(data: any, options?: TypeCheckOptions): void {
+    this.compile().check(data, options);
   }
 }
 
@@ -655,8 +680,8 @@ class BracketTypeChecker<
     return `(${this.content.type})`;
   }
 
-  check(data: any): void {
-    this.content.check(data);
+  check(data: any, options?: TypeCheckOptions): void {
+    this.content.check(data, options);
   }
 
   compile(): TypeChecker {
@@ -740,30 +765,20 @@ export function parseType(s: string): ParseResult<TypeChecker> {
 /**
  * only check for json-compatible types
  * */
-export function checkTsType(type: Type, data: any): void {
+export function checkTsType(
+  type: Type,
+  data: any,
+  options?: TypeCheckOptions,
+): void {
   const dataType = typeof data;
   switch (type) {
     case 'string':
     case 'number':
-    case 'boolean':
-      if (dataType !== type) {
-        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
-      }
-      return;
-    case 'true':
-      if (data !== true) {
-        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
-      }
-      return;
-    case 'false':
-      if (data !== false) {
-        throw new TypeCheckError(`expect type: ${type}, got type: ${dataType}`);
-      }
-      return;
     case 'Date':
-      if (!(data instanceof Date)) {
-        throw new TypeCheckError(`expect Date, got: ${getObjectType(data)}`);
-      }
+    case 'boolean':
+    case 'true':
+    case 'false':
+      nativeTypeCheckers[type].check(data, options);
       return;
     default: {
       const res = parseType(type);
@@ -778,7 +793,7 @@ export function checkTsType(type: Type, data: any): void {
       const compiledType = res.data.compile();
       dev('compiled type:', compiledType.type);
       // dev('checker:', util.inspect(compiledType, { depth: 99 }));
-      compiledType.check(data);
+      compiledType.check(data, options);
     }
   }
 }
