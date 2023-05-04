@@ -154,7 +154,7 @@ function parseWord(s: string): ParseResult<string> {
     }
   }
   if (len === 0) {
-    throw new TypeCheckError(`expect word, but got: '${s[0]}'`);
+    throw new TypeCheckError(`expect word, got: '${s[0]}'`);
   }
   return {
     res: s.substr(len),
@@ -173,7 +173,7 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
     throw new TypeCheckError('empty type');
   }
   if (s[0] !== '{') {
-    throw new TypeCheckError(`expect '{' but got '${s[0]}'`);
+    throw new TypeCheckError(`expect '{' got '${s[0]}'`);
   }
   s = s.substr(1);
   const fields: Field[] = [];
@@ -243,7 +243,7 @@ class StringChecker extends TypeChecker {
       throw new TypeCheckError(
         `expect string value: ${JSON.stringify(
           this.value,
-        )}, but got: ${JSON.stringify(data)}`,
+        )}, got: ${JSON.stringify(data)}`,
       );
     }
   }
@@ -298,7 +298,7 @@ class NumberChecker extends TypeChecker {
     }
     if (data !== this.value) {
       throw new TypeCheckError(
-        `expect number value: ${this.value}, but got: ${JSON.stringify(data)}`,
+        `expect number value: ${this.value}, got: ${JSON.stringify(data)}`,
       );
     }
   }
