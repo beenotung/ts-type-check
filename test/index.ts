@@ -1,4 +1,4 @@
-import { checkTsType, Type, TypeCheckOptions } from '../src';
+import { checkTsType, parseTsType, Type, TypeCheckOptions } from '../src';
 
 function test(
   type: Type,
@@ -9,6 +9,7 @@ function test(
   let error;
   try {
     checkTsType(type, data, options);
+    parseTsType(type).check(data, options);
   } catch (e) {
     error = e;
   } finally {

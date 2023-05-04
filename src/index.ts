@@ -716,7 +716,7 @@ function compileBracket(terms: BracketTerm[]): LogicTerm[] {
   return stack as LogicTerm[];
 }
 
-export function parseType(s: string): ParseResult<TypeChecker> {
+function parseType(s: string): ParseResult<TypeChecker> {
   const originalS = s;
   const terms: BracketTerm[] = [];
   let isTerm = false;
@@ -762,15 +762,7 @@ export function parseType(s: string): ParseResult<TypeChecker> {
   };
 }
 
-/**
- * only check for json-compatible types
- * */
-export function checkTsType(
-  type: Type,
-  data: any,
-  options?: TypeCheckOptions,
-): void {
-  const dataType = typeof data;
+export function parseTsType(type: Type): TypeChecker {
   switch (type) {
     case 'string':
     case 'number':
@@ -778,22 +770,28 @@ export function checkTsType(
     case 'boolean':
     case 'true':
     case 'false':
-      nativeTypeCheckers[type].check(data, options);
-      return;
-    default: {
-      const res = parseType(type);
-      if (res.res !== '') {
-        console.error('unknown type:', type);
-        throw new Error(
-          `failed to parse type, reminding type string: '${res.res}'`,
-        );
-      }
-      dev('raw type:', type);
-      dev('parsed type:', res.data.type);
-      const compiledType = res.data.compile();
-      dev('compiled type:', compiledType.type);
-      // dev('checker:', util.inspect(compiledType, { depth: 99 }));
-      compiledType.check(data, options);
-    }
+      return nativeTypeCheckers[type];
   }
+  const res = parseType(type);
+  if (res.res !== '') {
+    console.error('unknown type:', type);
+    throw new Error(
+      `failed to parse type, reminding type string: '${res.res}'`,
+    );
+  }
+  return res.data.compile();
+}
+
+/**
+ * only check for json-compatible types
+ *
+ * @throws TypeCheckError if failed
+ * */
+export function checkTsType(
+  type: Type,
+  data: any,
+  options?: TypeCheckOptions,
+): void {
+  let typeChecker = parseTsType(type);
+  typeChecker.check(data, options);
 }

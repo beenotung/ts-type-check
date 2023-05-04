@@ -18,6 +18,44 @@ Check json value based of Typescript type in string, throw express-compatible er
 
 \*: Unit types are the literal value of primitive types, e.g. `true` | `false` | `'str'` | `1`
 
+## Typescript signatures
+
+`checkTsType()` can be used for one-off type checking.
+
+```typescript
+/**
+ * only check for json-compatible types
+ *
+ * @throws TypeCheckError if failed
+ * */
+function checkTsType(type: string, data: any, options?: TypeCheckOptions): void
+
+type TypeCheckOptions = {
+  casualBoolean?: boolean
+}
+
+class TypeCheckError extends TypeError {
+  statusCode = 400
+  status = 400
+  message: string
+}
+```
+
+`parseTsType()` compiles the type string into a TypeChecker.
+
+It is optimized for repeating type checking.
+
+(It is used by `checkTsType()` internally.)
+
+```typescript
+function parseTsType(type: Type): TypeChecker
+
+interface TypeChecker {
+  type: string
+  check(data: any, options?: TypeCheckOptions): void
+}
+```
+
 ## Example
 
 ```typescript
