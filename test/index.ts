@@ -159,12 +159,12 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
   test(type, x);
   x = {
     UserId: 'Alice',
-    Contact: null,
+    Contact: null as any,
   };
   test(type, x, 'fail');
   x = {
     UserId: 'Alice',
-    Contact: undefined,
+    Contact: undefined as any,
   };
   test(type, x, 'fail');
   x = {
