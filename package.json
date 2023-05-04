@@ -13,9 +13,13 @@
   "license": "BSD-2-Clause",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/index.d.ts",
+    "dist/index.js"
+  ],
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "build": "tsc",
+    "build": "rimraf dist && tsc",
     "test": "tsc --noEmit && ts-node test/index.ts",
     "prepublishOnly": "npm test && tsc"
   },

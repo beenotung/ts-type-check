@@ -1,7 +1,0 @@
-
-.idea/
-tsconfig.json
-tslint.json
-.editorconfig
-.prettierrc
-*.tgz
