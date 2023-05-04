@@ -205,11 +205,30 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
 }
 
 // check if it can parse object key with spaces
-parseTsType(`{
-  labels: Array<string>
-  data: {
-    "Numbers of Bookings": Array<number>
-  }
-}`);
+{
+  let type = `{
+  "Numbers of Bookings": Array<number>
+}`;
+  test(type, { 'Numbers of Bookings': [1, 2, 3] });
+  test(type, { 'Numbers of Bookings': ['a', 'b', 'c'] }, 'fail');
+  test(type, { Numbers_of_Bookings: [1, 2, 3] }, 'fail');
+}
+
+// check union type in object field
+{
+  let type = `{
+  from_time: number | null
+  to_time: number | null
+}`;
+  test(type, { from_time: 1, to_time: 1 });
+  test(type, { from_time: null, to_time: null });
+  test(type, { from_time: 1, to_time: null });
+  test(type, { from_time: null, to_time: 1 });
+
+  test(type, { from_time: 'str', to_time: null }, 'fail');
+  test(type, { from_time: null, to_time: 'str' }, 'fail');
+
+  test(type, { to_time: null }, 'fail');
+}
 
 console.log('all passed.');

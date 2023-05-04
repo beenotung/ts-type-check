@@ -148,22 +148,17 @@ function isWordChar(c: string): boolean {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c === '_';
 }
 
+let parseWordRegex = /^[a-zA-Z_]\w*/;
+
 function parseWord(s: string): ParseResult<string> {
-  let len = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (isWordChar(c)) {
-      len = i + 1;
-    } else {
-      break;
-    }
-  }
-  if (len === 0) {
+  let match = s.match(parseWordRegex);
+  if (!match) {
     throw new TypeCheckError(`expect word, got: '${s[0]}'`);
   }
+  const word = match[0];
   return {
-    res: s.substring(len),
-    data: s.substring(0, len),
+    res: s.substring(word.length),
+    data: word,
   };
 }
 
@@ -274,7 +269,7 @@ function isDigit(c: string): boolean {
 }
 
 class LiteralChecker<T> extends TypeChecker {
-  type = 'literal ' + JSON.stringify(this.value);
+  type = JSON.stringify(this.value);
 
   constructor(private value: T) {
     super();
@@ -796,10 +791,22 @@ function parseType(s: string): ParseResult<TypeChecker> {
             };
           }
         }
-        if (s[0] === '}' && terms.length > 0) {
+        if (s[0] === ':') {
+          let last = terms.pop();
+          if (last) {
+            let lastType = typeof last === 'string' ? last : last.type;
+            s = lastType + s;
+            break main;
+          }
+          devStr('over done?', JSON.stringify({ originalS, terms, isTerm, s }));
+        }
+        if (
+          (s[0] === '}' || s[0] === ';' || s[0] === ',') &&
+          terms.length > 0
+        ) {
           break main;
         }
-        devStr('parseOneType:', originalS);
+        devStr('parseOneType:', s);
         const res = parseOneType(s);
         s = res.res.trim();
         terms.push(res.data);
