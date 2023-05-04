@@ -16,6 +16,7 @@ export type Type =
   | 'string'
   | 'number'
   | 'Date'
+  | 'null'
   | 'boolean'
   | 'true'
   | 'false'
@@ -440,10 +441,19 @@ class DateChecker extends TypeChecker {
   }
 }
 
+class NullChecker extends TypeChecker {
+  type: string = 'null';
+  check(data: any, options?: TypeCheckOptions): void {
+    if (data === null) return;
+    throw new TypeCheckError('expect null, got: ' + JSON.stringify(data));
+  }
+}
+
 const nativeTypeCheckers = {
   string: new StringChecker(),
   number: new NumberChecker(),
   Date: new DateChecker(),
+  null: new NullChecker(),
   boolean: new BooleanChecker(),
   true: new TrueChecker(),
   false: new FalseChecker(),
@@ -462,6 +472,7 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     'string',
     'number',
     'Date',
+    'null',
     'boolean',
     'true',
     'false',
@@ -809,6 +820,7 @@ export function parseTsType(type: Type): TypeChecker {
     case 'string':
     case 'number':
     case 'Date':
+    case 'null':
     case 'boolean':
     case 'true':
     case 'false':

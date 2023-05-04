@@ -55,6 +55,11 @@ test('false', 0, 'pass', { casualBoolean: true });
 test('Date', new Date());
 test('Date', new Date().getTime(), 'fail');
 
+test('null', null);
+test('null', 0, 'fail');
+test('null', '', 'fail');
+test('null', {}, 'fail');
+
 test('{ UserId: string }', { UserId: 'Alice' });
 test('{ UserId: string }', { UserId: 'Alice', Foo: 'bar' }, 'fail');
 test('{ UserId: string }', {}, 'fail');

@@ -10,6 +10,7 @@ Check json value based of Typescript type in string, throw express-compatible er
 - number
 - boolean
 - Date
+- null
 - object (with required / optional fields)
 - Array
 - unions
