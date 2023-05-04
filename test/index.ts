@@ -197,4 +197,12 @@ test(`({ a: number } | { b: number }) & { c: number }`, { c: 1 }, 'fail');
   test(type, x, 'pass');
 }
 
+// check if it can parse object key with spaces
+parseTsType(`{
+  labels: Array<string>
+  data: {
+    "Numbers of Bookings": Array<number>
+  }
+}`);
+
 console.log('all passed.');

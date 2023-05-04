@@ -195,7 +195,7 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
 
     let fieldName: string;
     {
-      const res = parseWord(s);
+      const res = parseObjectKey(s);
       fieldName = res.data;
       s = res.res.trim();
     }
@@ -230,7 +230,7 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
   }
 }
 
-function parseString(s: string): ParseResult<LiteralChecker<string>> {
+function parseStringValue(s: string): ParseResult<string> {
   if (s.length === 0) {
     throw new TypeCheckError('empty type');
   }
@@ -251,13 +251,21 @@ function parseString(s: string): ParseResult<LiteralChecker<string>> {
       case q:
         return {
           res: s.substring(i + 1),
-          data: new LiteralChecker(acc),
+          data: acc,
         };
       default:
         acc += c;
     }
   }
-  throw new TypeCheckError(`expect string, but missing closing quote: ${q}`);
+  throw new Error(`expect string, but missing closing quote: ${q}`);
+}
+
+function parseStringType(s: string): ParseResult<LiteralChecker<string>> {
+  const res = parseStringValue(s);
+  return {
+    res: res.res,
+    data: new LiteralChecker<string>(res.data),
+  };
 }
 
 function isDigit(c: string): boolean {
@@ -301,7 +309,7 @@ function parseIntStr(s: string): ParseResult<string> {
 }
 
 // TODO support e+<int> and e-<int>
-function parseNumber(s: string): ParseResult<LiteralChecker<number>> {
+function parseNumberValue(s: string): ParseResult<number> {
   const a = parseIntStr(s);
   s = a.res.trim();
   let num = a.data;
@@ -313,7 +321,15 @@ function parseNumber(s: string): ParseResult<LiteralChecker<number>> {
   }
   return {
     res: s,
-    data: new LiteralChecker(+num),
+    data: +num,
+  };
+}
+
+function parseNumberType(s: string): ParseResult<LiteralChecker<number>> {
+  const res = parseNumberValue(s);
+  return {
+    res: res.res,
+    data: new LiteralChecker<number>(res.data),
   };
 }
 
@@ -436,7 +452,7 @@ const nativeTypeCheckers = {
 function parseOneType(s: string): ParseResult<TypeChecker> {
   s = s.trim();
   if (s.length === 0) {
-    throw new TypeCheckError('empty type');
+    throw new Error('empty type');
   }
   if (s.startsWith('{')) {
     devStr('parseObjectType', s);
@@ -464,11 +480,11 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
   switch (s[0]) {
     case '"':
     case "'": {
-      return parseString(s);
+      return parseStringType(s);
     }
     default: {
       if (isDigit(s[0])) {
-        return parseNumber(s);
+        return parseNumberType(s);
       }
     }
   }
@@ -477,6 +493,27 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     const prefixRes = parseWord(s);
     if (prefixRes.data === 'Array') {
       return parseArray(s);
+    }
+  }
+}
+
+function parseObjectKey(s: string): ParseResult<string> {
+  s = s.trim();
+  if (s.length === 0) {
+    throw new Error('incomplete type, expect object key');
+  }
+  switch (s[0]) {
+    case '"':
+    case "'": {
+      return parseStringValue(s);
+    }
+    default: {
+      const match = s.match(/^\w+/);
+      if (!match)
+        throw new Error('invalid object key, got: ' + JSON.stringify(s));
+      const data = match[0];
+      const res = s.substring(data.length);
+      return { res, data };
     }
   }
 }
