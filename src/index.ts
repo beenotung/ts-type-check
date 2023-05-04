@@ -1,6 +1,6 @@
 // import * as util from 'util';
 
-const dev = (...args) => {
+const dev = (...args: any[]) => {
   return;
   console.log('[dev]', ...args);
 };
@@ -124,7 +124,7 @@ class ObjectTypeChecker extends TypeChecker {
         fields.set(field.name, field);
         return;
       }
-      const thisField = fields.get(field.name);
+      const thisField = fields.get(field.name)!;
       const thatField = field;
       const newField: Field = {
         name: thisField.name,
@@ -391,7 +391,7 @@ class BooleanChecker extends TypeChecker {
   type: string = 'boolean';
   check(data: any, options?: TypeCheckOptions): void {
     if (typeof data === 'boolean') return;
-    if (options.casualBoolean === true) {
+    if (options?.casualBoolean === true) {
       if (data === 0 || data === 1) return;
     }
     throw new TypeCheckError('expect boolean, got: ' + JSON.stringify(data));
@@ -465,7 +465,7 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     'boolean',
     'true',
     'false',
-  ]) {
+  ] as const) {
     if (s.startsWith(typeStr)) {
       const nextC = s[typeStr.length];
       if (!isWordChar(nextC)) {
@@ -494,6 +494,10 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
     if (prefixRes.data === 'Array') {
       return parseArray(s);
     }
+    return {
+      res: prefixRes.res,
+      data: new LiteralChecker<string>(prefixRes.data),
+    };
   }
 }
 
@@ -518,7 +522,7 @@ function parseObjectKey(s: string): ParseResult<string> {
   }
 }
 
-function toObjectTypeChecker(type: TypeChecker): ObjectTypeChecker | undefined {
+function toObjectTypeChecker(type: TypeChecker): ObjectTypeChecker | never {
   if (type instanceof ObjectTypeChecker) {
     return type;
   }
@@ -528,6 +532,7 @@ function toObjectTypeChecker(type: TypeChecker): ObjectTypeChecker | undefined {
   ) {
     return type.content;
   }
+  throw new Error('expect object type checker');
 }
 
 function isObjectTypeChecker(type: TypeChecker): boolean {
@@ -551,7 +556,7 @@ class OrTypeChecker extends TypeChecker {
       try {
         type.check(data, options);
         return;
-      } catch (e) {
+      } catch (e: any) {
         errors.push(e);
       }
     }

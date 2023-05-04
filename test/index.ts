@@ -44,9 +44,11 @@ test('false', false);
 test('true', false, 'fail');
 test('false', true, 'fail');
 
+test('true', 1, 'fail');
 test('true', 1, 'fail', { casualBoolean: false });
 test('true', 1, 'pass', { casualBoolean: true });
 
+test('false', 0, 'fail');
 test('false', 0, 'fail', { casualBoolean: false });
 test('false', 0, 'pass', { casualBoolean: true });
 
