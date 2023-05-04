@@ -161,8 +161,8 @@ function parseWord(s: string): ParseResult<string> {
     throw new TypeCheckError(`expect word, got: '${s[0]}'`);
   }
   return {
-    res: s.substr(len),
-    data: s.substr(0, len),
+    res: s.substring(len),
+    data: s.substring(0, len),
   };
 }
 
@@ -179,14 +179,14 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
   if (s[0] !== '{') {
     throw new TypeCheckError(`expect '{' got '${s[0]}'`);
   }
-  s = s.substr(1);
+  s = s.substring(1);
   const fields: Field[] = [];
   for (;;) {
     s = s.trim();
     const c = s[0];
 
     if (c === '}') {
-      s = s.substr(1);
+      s = s.substring(1);
       return {
         res: s,
         data: new ObjectTypeChecker(fields),
@@ -203,11 +203,11 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
     let fieldOptional = false;
     if (s[0] === '?') {
       fieldOptional = true;
-      s = s.substr(1).trim();
+      s = s.substring(1).trim();
     }
 
     expectChar(s, ':');
-    s = s.substr(1).trim();
+    s = s.substring(1).trim();
 
     let fieldType: TypeChecker;
     {
@@ -219,7 +219,7 @@ function parseObjectType(s: string): ParseResult<ObjectTypeChecker> {
     switch (s[0]) {
       case ',':
       case ';':
-        s = s.substr(1).trim();
+        s = s.substring(1).trim();
     }
 
     fields.push({
@@ -292,8 +292,8 @@ function parseIntStr(s: string): ParseResult<string> {
         throw new TypeCheckError(`expect integer, got: ${c}`);
       }
       return {
-        res: s.substr(i),
-        data: s.substr(0, i),
+        res: s.substring(i),
+        data: s.substring(0, i),
       };
     }
   }
@@ -455,7 +455,7 @@ function parseOneType(s: string): ParseResult<TypeChecker> {
       if (!isWordChar(nextC)) {
         const type: TypeChecker = nativeTypeCheckers[typeStr];
         return {
-          res: s.substr(typeStr.length),
+          res: s.substring(typeStr.length),
           data: type,
         };
       }
@@ -729,7 +729,7 @@ export function parseType(s: string): ParseResult<TypeChecker> {
       case '|':
       case '&': {
         isTerm = true;
-        s = s.substr(1).trim();
+        s = s.substring(1).trim();
         terms.push(c);
         break;
       }
